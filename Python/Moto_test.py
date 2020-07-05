@@ -56,7 +56,6 @@ class StepMoto:
     def stop(self):
         if self.status == "stop":
             return
-        ser.write(b"0O,") ## send to Arduino "0O," to stop the motors
         self.status = "stop"
 
     def setSpeed(self, speed):
@@ -67,42 +66,58 @@ class StepMoto:
 
 class ArdunioBoard:
     def __init__(self):
-        self._motos = {
-            'X': StepMoto("X")
-                }
+        self._motos = {}
+        self._moto_id = ['X', 'Y', 'Z', 'C', 'R', 'T']
+        for moto_id in self._moto_id:
+            self._motos[moto_id] = StepMoto(str(moto_id))
 
     def getMoto(self, name):
         return self._motos[name]
 
+    def stopMoto(self):
+        print("stop Moto")
+        for moto_id in self._moto_id:
+            self._motos[moto_id].stop()
+        ser.write(b"0O,") ## send to Arduino "0O," to stop the motors
+
+
+ardunio = ArdunioBoard()
+
 actions = {
-        'x': StepMoto.forward,
-        'y': StepMoto.backward
+        'a': (StepMoto.forward, ardunio.getMoto('X')),
+        'b': (StepMoto.backward, ardunio.getMoto('X')),
+        'c': (StepMoto.forward, ardunio.getMoto('Y')),
+        'd': (StepMoto.backward, ardunio.getMoto('Y')),
+        'e': (StepMoto.forward, ardunio.getMoto('Z')),
+        'f': (StepMoto.backward, ardunio.getMoto('Z')),
+        'g': (StepMoto.forward, ardunio.getMoto('C')),
+        'h': (StepMoto.backward, ardunio.getMoto('C')),
+        'i': (StepMoto.forward, ardunio.getMoto('R')),
+        'j': (StepMoto.backward, ardunio.getMoto('R')),
+        'k': (StepMoto.forward, ardunio.getMoto('T')),
+        'l': (StepMoto.backward, ardunio.getMoto('T'))
         }
 
-actions = collections.defaultdict(lambda: lambda obj: None , actions)
-ardunio = ArdunioBoard()
-moto = ardunio.getMoto('X')
+actions = collections.defaultdict(lambda: (lambda obj: None, None) , actions)
 
 def on_press(key):
-    print(key)
     try:
         if key == Key.esc:
             print('esc press')
             return False
 
-        actions[key.char](moto)
+        act = actions[key.char]
+        act[0](act[1])
+        print(act[1])
 
-        print(moto)
-    except AttributeError:
-        print("Exception")
+    except AttributeError as e:
+        print('{0} was pressed'.format(e.args[0]))
 
 def on_release(key):
-    print(key)
     try:
-        stop_list =['x','y']
-        print(key.char)
+        stop_list =['a','b','c','d', 'e', 'f', 'j', 'h', 'i', 'j', 'k', 'l']
         if key.char in stop_list:
-            moto.stop()
+            ardunio.stopMoto()
     except AttributeError:
         print("Exception")
 
@@ -113,6 +128,8 @@ if __name__ == '__main__':
         on_release = on_release) as listener:
         try:
             listener.join()
-        except MyException as e:
+        except Exception as e:
             print('{0} was pressed'.format(e.args[0]))
             destroy()
+
+        print("Finish normally")
